@@ -4,11 +4,27 @@ import os
 import sys
 from keras.models import Model
 
+
+# TODO: Squeezenet doesn't return preprocess_input and 
+# decode_predictions yet
+# TODO: VGG19 shape gives error when 
+# calling get_heatmaps (see heatmap.py)
+available_models = {
+  # "VGG": "VGG19",
+    "Resnet": "ResNet50",
+    "Inception": "InceptionV3",
+    "EfficientNetB0": "EfficientNetB0",
+    "EfficientNetB1": "EfficientNetB1",
+    "EfficientNetB6": "EfficientNetB6",
+  # "squeezenet": "squeezenet"
+}
+
+
 class Config:
     def __init__(self, 
                   path, 
                   img_type="both",
-                  load_data=True, 
+                  load_data=False, 
                   shuffle=False, 
                   letter=None, 
                   model_name="InceptionV3", 
@@ -26,11 +42,22 @@ class Config:
         self.load_data = load_data
         self.shuffle = shuffle
         self.letter = letter
+        
+        self.model_name = model_name
+        self.debug = debug
+        self.input_size = input_size
+        self.input_dim = input_dim
+        self.feats = feats
+        self.feat_layer = feat_layer
+        self.last_layer_weights = last_layer_weights
+
+        self.model = None
+        self.transfer_model = None
 
         self.code_path = os.path.join(self.path, "code")
         self.data_path = os.path.join(self.path, "samples")
         self.pillow_path = os.path.join(self.path, "pillow")
-        self.heatmaps_path = os.path.join(self.path, "heatmaps")
+        self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name, self.img_type, self.letter)
         self.sign_path = os.path.join(self.data_path, "sign")
         self.face_path = os.path.join(self.data_path, "face")
 
@@ -39,16 +66,6 @@ class Config:
 
         self.sign_imgs = []
         self.face_imgs = []
-
-        self.model_name = model_name
-        self.debug = debug
-        self.input_size = input_size
-        self.input_dim = input_dim
-        self.feats = feats
-        self.feat_layer = feat_layer
-        self.last_layer_weights = last_layer_weights
-        self.model = None
-        self.transfer_model = None
 
         if load_data:
             print("Loading data...")

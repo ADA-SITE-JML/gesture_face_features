@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from google.colab.patches import cv2_imshow
 
+
+def plot_imgs(folder_path):
+    img_paths = [os.path.join(folder_path, img_name) for img_name in os.listdir(folder_path)]
+
+    for i, img_path in enumerate(img_paths):
+        try:
+            img = Image.open(img_path)
+            show_img(img, title=f'Image {i+1}')
+        except Exception as e:
+            print(f"Error loading img from {img_path}: {e}")
+
+
 def show_img(img, title=None):
     img_array = np.array(img)
     plt.imshow(img_array)

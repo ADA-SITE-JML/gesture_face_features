@@ -5,14 +5,18 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import os
 
-def extract_hand_md(images, input_dim=None):
+def extract_hand_mp(images, input_dim=None, output_path=None):
     if not isinstance(images, list):
         images = [images]
 
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands()
 
-    for img in images:
+    if output_path and not os.path.exists(output_path):
+        os.makedirs(output_path)
+        print(f'Created output directory: {output_path}')
+
+    for i, img in enumerate(images):
         if not input_dim:
             img_resized = img.copy()
         else:
@@ -28,13 +32,17 @@ def extract_hand_md(images, input_dim=None):
                 hand_img = get_cropped_hand(img_resized, hand_points)
 
                 plt.imshow(hand_img)
-                plt.title('Cropped Hand Image')
+                plt.title(f'Hand Image {i}')
                 plt.axis('off')
                 plt.show()
 
+                if output_path:
+                    save_path = os.path.join(output_path, f'cropped_hand_{input_dim}_{i}.png')
+                    if not os.path.exists(save_path):
+                        cv2.imwrite(save_path, cv2.cvtColor(np.array(hand_img), cv2.COLOR_RGB2BGR))
+                        print(f'Hand image saved to: {save_path}')                  
         else:
-            image_filename = os.path.splitext(os.path.basename(img.filename))[0]
-            print(f'No hand detected in the image {image_filename}.')
+            print(f'No hand detected in the image index {i}.')
 
 
 def get_cropped_hand(img, hand_landmarks):

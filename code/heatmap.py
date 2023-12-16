@@ -56,7 +56,17 @@ def get_heatmap(input_img,
     return heat_map
 
 
-def generate_heatmaps(images, input_dim, preprocess_input, decode_predictions, transfer_model, last_layer_weights, input_size, feats, heatmaps_path):
+def generate_heatmaps(images, 
+                      input_dim, 
+                      preprocess_input, 
+                      decode_predictions, 
+                      transfer_model, 
+                      last_layer_weights, 
+                      input_size, 
+                      feats, 
+                      heatmaps_path=None
+                     ):
+
     if not isinstance(images, list):
         images = [images]
 
@@ -92,24 +102,23 @@ def generate_heatmaps(images, input_dim, preprocess_input, decode_predictions, t
         plt.show()
 
 
-def load_heatmaps(images, heatmaps_path):
-    if not isinstance(images, list):
-        images = [images]
+def load_heatmaps(img_paths, heatmaps_path):
+    if not isinstance(img_paths, list):
+        img_paths = [img_paths]
 
-    for img in images:
-        if isinstance(img, Image.Image):
-            image_name = os.path.splitext(os.path.basename(img.filename))[0]
-        else:
-            print("Invalid input. Please provide a list of PIL images or a single PIL image.")
+    for img_path in img_paths:
+        if not os.path.exists(img_path):
+            print(f"Invalid input. Image file not found: {img_path}")
             return
 
+        image_name = os.path.splitext(os.path.basename(img_path))[0]
         heatmap_filename = f"{image_name}_heatmap.JPG"
         heatmap_filepath = os.path.join(heatmaps_path, heatmap_filename)
 
         if os.path.exists(heatmap_filepath):
             fig = plt.figure()
-            fig = plt.imread(heatmap_filepath)
-            plt.imshow(fig)
+            heatmap_image = plt.imread(heatmap_filepath)
+            plt.imshow(heatmap_image)
             plt.title(f'Heatmap for {image_name}')
             plt.show()
         else:
