@@ -57,28 +57,28 @@ class Config:
         self.code_path = os.path.join(self.path, "code")
         self.data_path = os.path.join(self.path, "samples")
         self.pillow_path = os.path.join(self.path, "pillow")
-        self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name, self.img_type, self.letter)
+        self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name, self.letter)
         self.sign_path = os.path.join(self.data_path, "sign")
         self.face_path = os.path.join(self.data_path, "face")
 
-        self.sign_folder_paths, self.sign_img_paths = get_paths(self.sign_path, letter=self.letter)
-        self.face_folder_paths, self.face_img_paths = get_paths(self.face_path, letter=self.letter)
+        self.folder_paths = { "sign": [], "face": [] }
+        self.img_paths = { "sign": [], "face": [] }
+        self.imgs = { "sign": [], "face": [] }
 
-        self.sign_imgs = []
-        self.face_imgs = []
-
+        if self.img_type in ["sign", "both"]:
+            self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, letter=self.letter)
+        if self.img_type in ["face", "both"]:
+            self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, letter=self.letter)
+        
         if load_data:
-            print("Loading data...")
-            if self.img_type == 'sign':
-                self.sign_imgs = load_imgs(self.sign_img_paths, shuffle=self.shuffle)
-            elif self.img_type == 'face':
-                self.face_imgs = load_imgs(self.face_img_paths, shuffle=self.shuffle)
-            elif self.img_type == 'both':
-                self.sign_imgs = load_imgs(self.sign_img_paths, shuffle=self.shuffle)
-                self.face_imgs = load_imgs(self.face_img_paths, shuffle=self.shuffle)
+            print("Loading data...")         
+            if self.img_type in ["sign", "both"]:
+                self.imgs["sign"] = load_imgs(self.img_paths["sign"], shuffle=self.shuffle)
+            if self.img_type in ["face", "both"]:
+                self.imgs["face"] = load_imgs(self.img_paths["face"], shuffle=self.shuffle)
             print("Data loaded successfully.")
 
-        self.img_count = len(self.sign_imgs) + len(self.face_imgs)
+        self.img_count = len(self.imgs["sign"]) + len(self.imgs["face"])
 
 
         print(f'Setting up model {self.model_name}...')
@@ -171,13 +171,17 @@ class Config:
 
         print(f'Model was set up successfully.')
 
-        self.heatmap_config =  [
+        self.heatmap_config = [
           self.preprocess_input, 
           self.decode_predictions, 
           self.transfer_model, 
           self.last_layer_weights, 
           self.input_size, 
-          self.feats
+          self.feats,
+          self.input_dim,
+          self.imgs,
+          self.img_paths,
+          self.heatmaps_path,
         ]
 
     def __repr__(self):

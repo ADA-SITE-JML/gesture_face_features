@@ -1,125 +1,113 @@
 # Source: https://github.com/bnsreenu/python_for_microscopists/blob/
 # master/263_Object%20localization%20in%20images%E2%80%8B
 # _using_GAP_layer/263_Object%20localization%20in%20images%E2%80%8B_using_GAP_layer.py
-
 import numpy as np
-from google.colab.patches import cv2_imshow
-import matplotlib.pyplot as plt
 import os
-import csv
-import scipy #to upscale the image
+import scipy
+import matplotlib.pyplot as plt
 from PIL import Image
-import cv2
 
-def get_heatmap(input_img, 
-                preprocess_input, 
-                decode_predictions, 
-                transfer_model, 
-                last_layer_weights, 
-                input_size, 
-                feats
-              ):
-    
-    
-    img_tensor = np.expand_dims(input_img, axis=0)
+class Heatmap:
+    def __init__(self, preprocess_input, decode_predictions, transfer_model, last_layer_weights, input_size, feats, input_dim, imgs, img_paths, heatmap_path):
+        self.preprocess_input = preprocess_input
+        self.decode_predictions = decode_predictions
+        self.transfer_model = transfer_model
+        self.last_layer_weights = last_layer_weights
+        self.input_size = input_size
+        self.feats = feats
+        self.input_dim = input_dim
+        self.imgs = imgs
+        self.img_paths = img_paths
+        self.heatmap_path = heatmap_path
 
-    preprocessed_img = preprocess_input(img_tensor)
+    def get_heatmap(self, input_img, img_type):
+        img_tensor = np.expand_dims(input_img, axis=0)
+        preprocessed_img = self.preprocess_input(img_tensor)
 
-    #Get the predictions and the output of last conv. layer.
-    last_conv_output, pred_vec = transfer_model.predict(preprocessed_img)
+        last_conv_output, pred_vec = self.transfer_model.predict(preprocessed_img)
 
-    print('last_conv_output',last_conv_output.shape)
-    #Last conv. output for the image
-    last_conv_output = np.squeeze(last_conv_output) # usually 7x7xfeats
-    #Prediction for the image
-    pred = np.argmax(pred_vec)
+        last_conv_output = np.squeeze(last_conv_output)
+        pred = np.argmax(pred_vec)
 
-    decode_predictions(pred_vec, top=1)
+        h = int(input_img.shape[0] / last_conv_output.shape[0])
+        w = int(input_img.shape[1] / last_conv_output.shape[1])
 
-    # spline interpolation to resize each filtered image to size of original image
-    h = int(input_img.shape[0]/last_conv_output.shape[0])
-    w = int(input_img.shape[1]/last_conv_output.shape[1])
+        upsampled_last_conv_output = scipy.ndimage.zoom(last_conv_output, (h, w, 1), order=1)
+        last_layer_weights_for_pred = self.last_layer_weights[:, pred]
 
-    upsampled_last_conv_output = scipy.ndimage.zoom(last_conv_output, (h, w, 1), order=1) # dim: imput_size x imput_size x feats
-    print('upsampled_last_conv_output',upsampled_last_conv_output.shape)
+        heat_map = np.dot(upsampled_last_conv_output.reshape((self.input_size * self.input_size, self.feats)),
+                          last_layer_weights_for_pred).reshape(self.input_size, self.input_size)
 
-    #Get the weights from the last layer for the prediction class
-    last_layer_weights_for_pred = last_layer_weights[:, pred] # dim: (2048,)
-    print('last_layer_weights_for_pred',last_layer_weights_for_pred.shape)
-
-    # To generate the final heat map.
-    # Reshape the upsampled last conv. output to n x filters and multiply (dot product)
-    # with the last layer weigths for the prediction.
-    # Reshape back to the image size for easy overlay onto the original image.
-    heat_map = np.dot(upsampled_last_conv_output.reshape((input_size*input_size, feats)),
-                  last_layer_weights_for_pred).reshape(input_size,input_size)
-    return heat_map
+        return heat_map
 
 
-def generate_heatmaps(images, 
-                      input_dim, 
-                      preprocess_input, 
-                      decode_predictions, 
-                      transfer_model, 
-                      last_layer_weights, 
-                      input_size, 
-                      feats, 
-                      heatmaps_path=None
-                     ):
+    def generate_heatmaps(self, num_images=None):
+        for img_type, img_list in self.imgs.items():
+            img_paths = self.img_paths[img_type]
 
-    if not isinstance(images, list):
-        images = [images]
+            if num_images is not None:
+                img_list = img_list[:num_images]
+                img_paths = img_paths[:num_images]
 
-    for img in images:
-        img_resized = img.resize(input_dim)
-        img_array = np.array(img_resized)
+            for i, (img, img_path) in enumerate(zip(img_list, img_paths)):
+                img_array = np.array(img.resize(self.input_dim))
+                heatmap = self.get_heatmap(img_array, img_type)
 
-        heatmap = get_heatmap(img_array, preprocess_input, decode_predictions, transfer_model, last_layer_weights, input_size, feats)
+                fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+                # Plot the original image in the first subplot
+                axs[0].imshow(img_array)
+                axs[0].set_title('Original Image')
+                axs[0].axis('off')
 
-        # Plot the original image in the first subplot
-        axs[0].imshow(img_resized)
-        axs[0].set_title('Original Image')
-        axs[0].axis('off')
+                # Plot the heatmap drawn on top of the original image in the second subplot
+                axs[1].imshow(img_array)
+                axs[1].imshow(heatmap, cmap='jet', alpha=0.5)
+                axs[1].set_title('Heatmap')
+                axs[1].axis('off')
 
-        # Plot the heatmap drawn on top of the original image in the second subplot
-        axs[1].imshow(img_resized)
-        axs[1].imshow(heatmap, cmap='jet', alpha=0.5)
-        axs[1].set_title('Heatmap')
-        axs[1].axis('off')
+                if self.heatmap_path:
+                    os.makedirs(self.heatmap_path, exist_ok=True)
+                    image_filename = os.path.splitext(os.path.basename(img_path))[0]
+                    category_folder = os.path.join(self.heatmap_path, img_type.lower())
+                    os.makedirs(category_folder, exist_ok=True)
 
-        if heatmaps_path:
-            os.makedirs(heatmaps_path, exist_ok=True)
-            image_filename = os.path.splitext(os.path.basename(img.filename))[0]
-            heatmap_filename = f"{image_filename}_heatmap.JPG"
-            heatmap_filepath = os.path.join(heatmaps_path, heatmap_filename)
+                    heatmap_filename = f"{image_filename}_heatmap.JPG"
+                    heatmap_filepath = os.path.join(category_folder, heatmap_filename)
 
-            if not os.path.exists(heatmap_filepath):
-                fig.savefig(heatmap_filepath)
-                print(f"Heatmap saved: {heatmap_filepath}")
+                    if not os.path.exists(heatmap_filepath):
+                        fig.savefig(heatmap_filepath)
+                        print(f"Heatmap saved: {heatmap_filepath}")
 
-        plt.show()
+                plt.show()
 
 
-def load_heatmaps(img_paths, heatmaps_path):
-    if not isinstance(img_paths, list):
-        img_paths = [img_paths]
-
-    for img_path in img_paths:
-        if not os.path.exists(img_path):
-            print(f"Invalid input. Image file not found: {img_path}")
+    def load_heatmaps(self, num_images=None):
+        if not isinstance(self.img_paths, dict):
+            print("Invalid input. 'img_paths' should be a dictionary.")
             return
 
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
-        heatmap_filename = f"{image_name}_heatmap.JPG"
-        heatmap_filepath = os.path.join(heatmaps_path, heatmap_filename)
+        for img_type, img_path_list in self.img_paths.items():
+            category_folder = os.path.join(self.heatmap_path, img_type.lower())
+            os.makedirs(category_folder, exist_ok=True)
 
-        if os.path.exists(heatmap_filepath):
-            fig = plt.figure()
-            heatmap_image = plt.imread(heatmap_filepath)
-            plt.imshow(heatmap_image)
-            plt.title(f'Heatmap for {image_name}')
-            plt.show()
-        else:
-            print(f"Heatmap not found for {image_name}")
+            if num_images is not None:
+                img_path_list = img_path_list[:num_images]
+
+            for i, img_path in enumerate(img_path_list):
+                if not os.path.exists(img_path):
+                    print(f"Invalid input. Image file not found: {img_path}")
+                    continue
+
+                image_name = os.path.splitext(os.path.basename(img_path))[0]
+                heatmap_filename = f"{image_name}_heatmap.JPG"
+                heatmap_filepath = os.path.join(category_folder, heatmap_filename)
+
+                if os.path.exists(heatmap_filepath):
+                    fig = plt.figure()
+                    heatmap_image = plt.imread(heatmap_filepath)
+                    plt.imshow(heatmap_image)
+                    plt.title(f'Heatmap for {image_name}')
+                    plt.show()
+                else:
+                    print(f"Heatmap not found for {image_name}")
