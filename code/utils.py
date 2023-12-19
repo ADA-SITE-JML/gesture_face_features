@@ -1,31 +1,64 @@
 # utils.py
 import os
-from PIL import Image
+from PIL import Image, ImageEnhance
 import random
 import matplotlib.pyplot as plt
 import numpy as np
 from google.colab.patches import cv2_imshow
+import random
 
 
-def plot_imgs(folder_path):
-    img_paths = [os.path.join(folder_path, img_name) for img_name in os.listdir(folder_path)]
+def adjust_contrast(img, factor):
+    enhancer = ImageEnhance.Contrast(img)
+    enhanced_img = enhancer.enhance(factor)
+    return enhanced_img
 
-    for i, img_path in enumerate(img_paths):
+def adjust_contrasts(img_list, factor):
+    enhanced_imgs = []
+    for img in img_list:
+        enhanced_imgs.append(adjust_contrast(img, factor))
+    return enhanced_imgs
+
+
+def plot_imgs(imgs, imgs_per_row=1):
+    if isinstance(imgs, str):  # Check if it's a folder path
+        img_paths = [os.path.join(imgs, img_name) for img_name in os.listdir(imgs)]
+        num_imgs = len(img_paths)
+        img_loader = lambda idx: Image.open(img_paths[idx])
+    elif isinstance(imgs, list) and all(isinstance(img, Image.Image) for img in imgs):  # Check if it's a list of PIL images
+        num_imgs = len(imgs)
+        img_loader = lambda idx: imgs[idx]
+    else:
+        raise ValueError("Invalid input. Provide either a folder path or a list of PIL images.")
+
+    num_rows = (num_imgs + imgs_per_row - 1) // imgs_per_row
+
+    fig, axs = plt.subplots(num_rows, imgs_per_row, figsize=(4 * imgs_per_row, 4 * num_rows))
+    axs = axs.flatten()
+
+    for idx in range(num_imgs):
         try:
-            img = Image.open(img_path)
-            show_img(img, title=f'Image {i+1}')
+            img = img_loader(idx)
+            show_img(img, axs[idx], title=f'Image {idx + 1}')
         except Exception as e:
-            print(f"Error loading img from {img_path}: {e}")
+            print(f"Error loading image: {e}")
 
-
-def show_img(img, title=None):
-    img_array = np.array(img)
-    plt.imshow(img_array)
-    if title:
-        plt.title(title)
-    plt.axis('off')
     plt.show()
 
+
+def show_img(img, ax, title=None):
+    ax.imshow(np.array(img))
+    if title:
+        ax.set_title(title)
+    ax.axis('off')
+
+
+
+def show_img(img, ax, title=None):
+    ax.imshow(np.array(img))
+    if title:
+        ax.set_title(title)
+    ax.axis('off')
 
 def load_imgs(img_paths, shuffle=False, letter=None):
     if shuffle:
@@ -55,7 +88,8 @@ def process_img(input_img):
     return img
 
 
-def get_paths(root_directory, letter=None):
+
+def get_paths(root_directory, letter=None, is_random=False):
     folder_paths = []
     img_paths = []
 
@@ -68,10 +102,14 @@ def get_paths(root_directory, letter=None):
         folder_paths.append(folder_path)
 
         files = os.listdir(folder_path)
-        for file in files:
-            img_path = os.path.join(folder_path, file)
+        if is_random:
+            random_img = random.choice(files)
+            img_path = os.path.join(folder_path, random_img)
             img_paths.append(img_path)
-
+        else:
+            for f in files:
+                img_path = os.path.join(folder_path, f)
+                img_paths.append(img_path)
 
     if not folder_paths or not img_paths:
         raise ValueError("No folder or image path was found. Check the specified letter or path.")

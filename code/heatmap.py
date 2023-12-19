@@ -8,7 +8,19 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 class Heatmap:
-    def __init__(self, preprocess_input, decode_predictions, transfer_model, last_layer_weights, input_size, feats, input_dim, imgs, img_paths, heatmap_path):
+    def __init__(self, 
+                  preprocess_input, 
+                  decode_predictions, 
+                  transfer_model, 
+                  last_layer_weights, 
+                  input_size, 
+                  feats, 
+                  input_dim, 
+                  imgs, 
+                  img_paths, 
+                  heatmap_path
+                ):
+
         self.preprocess_input = preprocess_input
         self.decode_predictions = decode_predictions
         self.transfer_model = transfer_model
@@ -20,7 +32,7 @@ class Heatmap:
         self.img_paths = img_paths
         self.heatmap_path = heatmap_path
 
-    def get_heatmap(self, input_img, img_type):
+    def get_heatmap(self, input_img):
         img_tensor = np.expand_dims(input_img, axis=0)
         preprocessed_img = self.preprocess_input(img_tensor)
 
@@ -41,17 +53,18 @@ class Heatmap:
         return heat_map
 
 
-    def generate_heatmaps(self, num_images=None):
+
+    def generate_heatmaps(self, img_count=None, save=False):
         for img_type, img_list in self.imgs.items():
             img_paths = self.img_paths[img_type]
 
-            if num_images is not None:
-                img_list = img_list[:num_images]
-                img_paths = img_paths[:num_images]
+            if img_count is not None:
+                img_list = img_list[:img_count]
+                img_paths = img_paths[:img_count]
 
             for i, (img, img_path) in enumerate(zip(img_list, img_paths)):
                 img_array = np.array(img.resize(self.input_dim))
-                heatmap = self.get_heatmap(img_array, img_type)
+                heatmap = self.get_heatmap(img_array)
 
                 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -66,13 +79,14 @@ class Heatmap:
                 axs[1].set_title('Heatmap')
                 axs[1].axis('off')
 
-                if self.heatmap_path:
+                if save:
                     os.makedirs(self.heatmap_path, exist_ok=True)
-                    image_filename = os.path.splitext(os.path.basename(img_path))[0]
-                    category_folder = os.path.join(self.heatmap_path, img_type.lower())
+                    img_filename = os.path.splitext(os.path.basename(img_path))[0]
+                    letter = img_path.split("/")[-2]
+                    category_folder = os.path.join(self.heatmap_path, letter, img_type.lower())
                     os.makedirs(category_folder, exist_ok=True)
 
-                    heatmap_filename = f"{image_filename}_heatmap.JPG"
+                    heatmap_filename = f"{img_filename}_heatmap.JPG"
                     heatmap_filepath = os.path.join(category_folder, heatmap_filename)
 
                     if not os.path.exists(heatmap_filepath):
@@ -82,32 +96,58 @@ class Heatmap:
                 plt.show()
 
 
-    def load_heatmaps(self, num_images=None):
+    def generate_heatmaps_row(self, img_count=None, imgs_per_row=5):
+        for img_type in ["sign", "face"]:
+            img_list = self.imgs[img_type]
+            img_paths = self.img_paths[img_type]
+
+            if img_count is not None:
+                img_list = img_list[:img_count]
+                img_paths = img_paths[:img_count]
+
+            num_rows = (len(img_list) + imgs_per_row - 1) // imgs_per_row
+
+            for row in range(num_rows):
+                fig, axs = plt.subplots(1, imgs_per_row, figsize=(4 * imgs_per_row, 6))
+                for i in range(imgs_per_row):
+                    idx = row * imgs_per_row + i
+                    if idx < len(img_list):
+                        img, img_path = img_list[idx], img_paths[idx]
+                        img_array = np.array(img.resize(self.input_dim))
+                        heatmap = self.get_heatmap(img_array)
+
+                        axs[i].imshow(img_array)
+                        axs[i].imshow(heatmap, cmap='jet', alpha=0.5)
+                        axs[i].axis('off')
+
+                plt.show()
+
+
+    def load_heatmaps(self, img_count=None):
         if not isinstance(self.img_paths, dict):
             print("Invalid input. 'img_paths' should be a dictionary.")
             return
 
         for img_type, img_path_list in self.img_paths.items():
-            category_folder = os.path.join(self.heatmap_path, img_type.lower())
-            os.makedirs(category_folder, exist_ok=True)
-
-            if num_images is not None:
-                img_path_list = img_path_list[:num_images]
+            if img_count is not None:
+                img_path_list = img_path_list[:img_count]
 
             for i, img_path in enumerate(img_path_list):
                 if not os.path.exists(img_path):
                     print(f"Invalid input. Image file not found: {img_path}")
                     continue
 
-                image_name = os.path.splitext(os.path.basename(img_path))[0]
-                heatmap_filename = f"{image_name}_heatmap.JPG"
-                heatmap_filepath = os.path.join(category_folder, heatmap_filename)
-
+                img_name = os.path.splitext(os.path.basename(img_path))[0]
+                letter = img_path.split("/")[-2]
+                heatmap_filename = f"{img_name}_heatmap.JPG"
+                heatmap_filepath = os.path.join(self.heatmap_path, letter, img_type.lower(), heatmap_filename)
+                print(heatmap_filepath)
+                
                 if os.path.exists(heatmap_filepath):
                     fig = plt.figure()
-                    heatmap_image = plt.imread(heatmap_filepath)
-                    plt.imshow(heatmap_image)
-                    plt.title(f'Heatmap for {image_name}')
+                    heatmap_img = plt.imread(heatmap_filepath)
+                    plt.imshow(heatmap_img)
+                    plt.title(f'Heatmap for {img_name}')
                     plt.show()
                 else:
-                    print(f"Heatmap not found for {image_name}")
+                    print(f"Heatmap not found for {img_name}")
