@@ -27,6 +27,7 @@ class Config:
                   load_data=False, 
                   shuffle=False, 
                   letter=None, 
+                  is_random=False,
                   model_name="InceptionV3", 
                   debug=False,
                   # Default for ResNet, VGG19, squeezenet
@@ -42,6 +43,7 @@ class Config:
         self.load_data = load_data
         self.shuffle = shuffle
         self.letter = letter
+        self.is_random = is_random
         
         self.model_name = model_name
         self.debug = debug
@@ -57,28 +59,29 @@ class Config:
         self.code_path = os.path.join(self.path, "code")
         self.data_path = os.path.join(self.path, "samples")
         self.pillow_path = os.path.join(self.path, "pillow")
-        self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name, self.letter)
+        self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name)
         self.sign_path = os.path.join(self.data_path, "sign")
         self.face_path = os.path.join(self.data_path, "face")
 
-        self.folder_paths = { "sign": [], "face": [] }
-        self.img_paths = { "sign": [], "face": [] }
-        self.imgs = { "sign": [], "face": [] }
+        self.folder_paths = { "sign": [], "face": [], "both": [] }
+        self.img_paths = { "sign": [], "face": [], "both": [] }
+        self.imgs = { "sign": [], "face": [], "both": [] }
 
-        if self.img_type in ["sign", "both"]:
-            self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, letter=self.letter)
-        if self.img_type in ["face", "both"]:
-            self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, letter=self.letter)
+        
+        self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, self.letter, self.is_random)
+        self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, self.letter, self.is_random)
+        self.folder_paths["both"] = self.folder_paths["sign"] + self.folder_paths["face"]
+        
+        self.img_paths["both"] = self.img_paths["sign"] + self.img_paths["face"]
         
         if load_data:
             print("Loading data...")         
-            if self.img_type in ["sign", "both"]:
-                self.imgs["sign"] = load_imgs(self.img_paths["sign"], shuffle=self.shuffle)
-            if self.img_type in ["face", "both"]:
-                self.imgs["face"] = load_imgs(self.img_paths["face"], shuffle=self.shuffle)
+            self.imgs["sign"] = load_imgs(self.img_paths["sign"], self.shuffle, self.letter)
+            self.imgs["face"] = load_imgs(self.img_paths["face"], self.shuffle, self.letter)
+            self.imgs["both"] = self.imgs["sign"] + self.imgs["face"]
             print("Data loaded successfully.")
 
-        self.img_count = len(self.imgs["sign"]) + len(self.imgs["face"])
+        self.img_count = len(self.imgs["both"])
 
 
         print(f'Setting up model {self.model_name}...')
