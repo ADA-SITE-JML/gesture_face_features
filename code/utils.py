@@ -66,7 +66,7 @@ def load_imgs(img_paths, shuffle=False, letter=None):
 
     loaded_imgs = []
     for path in img_paths:
-        if letter is not None and not path.lower().endswith(f"/{letter.lower()}"):
+        if letter is not None and not  path.lower().split('/')[-2] == letter.lower():
             continue
 
         try:

@@ -9,6 +9,7 @@ from PIL import Image
 
 class Heatmap:
     def __init__(self, 
+                  model_name,
                   preprocess_input, 
                   decode_predictions, 
                   transfer_model, 
@@ -21,6 +22,7 @@ class Heatmap:
                   heatmap_path
                 ):
 
+        self.model_name = model_name
         self.preprocess_input = preprocess_input
         self.decode_predictions = decode_predictions
         self.transfer_model = transfer_model
@@ -32,29 +34,55 @@ class Heatmap:
         self.img_paths = img_paths
         self.heatmap_path = heatmap_path
 
-    def get_heatmap(self, input_img):
+    def get_heatmap(self, input_img, mean=True):
         img_tensor = np.expand_dims(input_img, axis=0)
         preprocessed_img = self.preprocess_input(img_tensor)
 
         last_conv_output, pred_vec = self.transfer_model.predict(preprocessed_img)
 
+        print('Input Image Shape:', input_img.shape)
+        print('Preprocessed Image Shape:', preprocessed_img.shape)
+        print('Last Conv Output Shape:', last_conv_output.shape)
+
         last_conv_output = np.squeeze(last_conv_output)
         pred = np.argmax(pred_vec)
+
+        print('Squeezed Last Conv Output Shape:', last_conv_output.shape)
+        print('Predicted Class:', pred)
 
         h = int(input_img.shape[0] / last_conv_output.shape[0])
         w = int(input_img.shape[1] / last_conv_output.shape[1])
 
         upsampled_last_conv_output = scipy.ndimage.zoom(last_conv_output, (h, w, 1), order=1)
+        
+        print('Upsampled Last Conv Output Shape:', upsampled_last_conv_output.shape)
+
         last_layer_weights_for_pred = self.last_layer_weights[:, pred]
 
-        heat_map = np.dot(upsampled_last_conv_output.reshape((self.input_size * self.input_size, self.feats)),
-                          last_layer_weights_for_pred).reshape(self.input_size, self.input_size)
+        print('Last Layer Weights for Predicted Class Shape:', last_layer_weights_for_pred.shape)
+
+        reshaped_array = upsampled_last_conv_output.reshape((self.input_size * self.input_size, self.feats))
+
+        print("Reshaped Array", reshaped_array.shape)
+
+        
+        if self.model_name == "VGG19":
+          if mean:
+            reshaped_array = np.mean(reshaped_array, axis=1, keepdims=True)
+          else:
+            reshaped_array = np.amax(reshaped_array, axis=1, keepdims=True)
+          reshaped_array = np.tile(reshaped_array, last_layer_weights_for_pred.shape[0])
+          print("VGG19 depth averaged or maxed:", reshaped_array.shape)
+        
+        heat_map = np.dot(reshaped_array, last_layer_weights_for_pred).reshape(self.input_size, self.input_size)
+
+        print('Final Heat Map Shape:', heat_map.shape)
 
         return heat_map
 
 
 
-    def generate_heatmaps(self, img_count=None, save=False):
+    def generate_heatmaps(self, mean=True, img_count=None, save=False):
         for img_type, img_list in self.imgs.items():
             img_paths = self.img_paths[img_type]
 
@@ -64,7 +92,7 @@ class Heatmap:
 
             for i, (img, img_path) in enumerate(zip(img_list, img_paths)):
                 img_array = np.array(img.resize(self.input_dim))
-                heatmap = self.get_heatmap(img_array)
+                heatmap = self.get_heatmap(img_array, mean=mean)
 
                 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -96,17 +124,15 @@ class Heatmap:
                 plt.show()
 
 
-    def generate_heatmaps_row(self, img_count=None, imgs_per_row=5):
+    def generate_heatmaps_row(self, mean=True, img_count=None, imgs_per_row=5):
         for img_type in ["sign", "face"]:
             img_list = self.imgs[img_type]
             img_paths = self.img_paths[img_type]
-
             if img_count is not None:
                 img_list = img_list[:img_count]
                 img_paths = img_paths[:img_count]
 
             num_rows = (len(img_list) + imgs_per_row - 1) // imgs_per_row
-
             for row in range(num_rows):
                 fig, axs = plt.subplots(1, imgs_per_row, figsize=(4 * imgs_per_row, 6))
                 for i in range(imgs_per_row):
@@ -114,7 +140,7 @@ class Heatmap:
                     if idx < len(img_list):
                         img, img_path = img_list[idx], img_paths[idx]
                         img_array = np.array(img.resize(self.input_dim))
-                        heatmap = self.get_heatmap(img_array)
+                        heatmap = self.get_heatmap(img_array, mean=mean)
 
                         axs[i].imshow(img_array)
                         axs[i].imshow(heatmap, cmap='jet', alpha=0.5)

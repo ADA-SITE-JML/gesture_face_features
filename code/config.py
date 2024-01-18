@@ -10,7 +10,7 @@ from keras.models import Model
 # TODO: VGG19 shape gives error when 
 # calling get_heatmaps (see heatmap.py)
 available_models = {
-  # "VGG": "VGG19",
+    "VGG": "VGG19",
     "Resnet": "ResNet50",
     "Inception": "InceptionV3",
     "EfficientNetB0": "EfficientNetB0",
@@ -175,6 +175,7 @@ class Config:
         print(f'Model was set up successfully.')
 
         self.heatmap_config = [
+          self.model_name,
           self.preprocess_input, 
           self.decode_predictions, 
           self.transfer_model, 
