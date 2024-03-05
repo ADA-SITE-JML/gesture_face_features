@@ -6,6 +6,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from google.colab.patches import cv2_imshow
 import random
+from sklearn.manifold import TSNE
+
+
+def get_tsne(last_conv_outputs, plot=True):
+    tsne = TSNE(n_components=2, random_state=42)
+    tsne_embedding = tsne.fit_transform(last_conv_outputs)
+
+    if plot:
+        plt.scatter(tsne_embedding[:, 0], tsne_embedding[:, 1])
+        plt.title('t-SNE Embedding of Last Convolutional Layer Features')
+        plt.show()
+
+    return tsne_embedding
 
 
 def adjust_contrast(img, factor):
@@ -46,19 +59,16 @@ def plot_imgs(imgs, imgs_per_row=1):
     plt.show()
 
 
-def show_img(img, ax, title=None):
+def show_img(img, title=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
     ax.imshow(np.array(img))
     if title:
         ax.set_title(title)
     ax.axis('off')
+    if ax is None:
+        plt.show()
 
-
-
-def show_img(img, ax, title=None):
-    ax.imshow(np.array(img))
-    if title:
-        ax.set_title(title)
-    ax.axis('off')
 
 def load_imgs(img_paths, shuffle=False, letter=None):
     if shuffle:

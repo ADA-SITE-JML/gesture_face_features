@@ -3,21 +3,22 @@ from utils import load_imgs, get_paths
 import os
 import sys
 from keras.models import Model
+import numpy as np
 
 
 # TODO: Squeezenet doesn't return preprocess_input and 
 # decode_predictions yet
 # TODO: VGG19 shape gives error when 
 # calling get_heatmaps (see heatmap.py)
-available_models = {
-    "VGG": "VGG19",
-    "Resnet": "ResNet50",
-    "Inception": "InceptionV3",
-    "EfficientNetB0": "EfficientNetB0",
-    "EfficientNetB1": "EfficientNetB1",
-    "EfficientNetB6": "EfficientNetB6",
-  # "squeezenet": "squeezenet"
-}
+available_models = [
+  "VGG19",
+  "ResNet50",
+  "InceptionV3",
+  "EfficientNetB0",
+  "EfficientNetB1",
+  "EfficientNetB6",
+  "squeezenet",
+]
 
 
 class Config:
@@ -35,7 +36,8 @@ class Config:
                   input_dim=(224, 224),
                   feats = 0, 
                   feat_layer = 0,
-                  last_layer_weights = 0
+                  last_layer_weights = 0,
+                  preprocess_input = None
                 ):
 
         self.path = path
@@ -67,7 +69,6 @@ class Config:
         self.img_paths = { "sign": [], "face": [], "both": [] }
         self.imgs = { "sign": [], "face": [], "both": [] }
 
-        
         self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, self.letter, self.is_random)
         self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, self.letter, self.is_random)
         self.folder_paths["both"] = self.folder_paths["sign"] + self.folder_paths["face"]
@@ -83,101 +84,73 @@ class Config:
 
         self.img_count = len(self.imgs["both"])
 
-
         print(f'Setting up model {self.model_name}...')
 
         if self.model_name == 'ResNet50':
-          from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input, decode_predictions
-        elif self.model_name == 'VGG19':
-          from tensorflow.keras.applications.vgg19 import VGG19, preprocess_input, decode_predictions
-        elif self.model_name == 'InceptionV3':
-          from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
-        elif self.model_name == 'EfficientNetB0':
-          from tensorflow.keras.applications.efficientnet import EfficientNetB0, preprocess_input, decode_predictions
-        elif self.model_name == 'EfficientNetB1':
-          from tensorflow.keras.applications.efficientnet import EfficientNetB1, preprocess_input, decode_predictions
-        elif self.model_name == 'EfficientNetB6':
-          from tensorflow.keras.applications.efficientnet import EfficientNetB6, preprocess_input, decode_predictions
-        elif self.model_name == 'squeezenet':
-          import torchvision
-          from torchvision.models import squeezenet1_1
-          from torchvision.models.feature_extraction import create_feature_extractor
-        else:
-          print('Model is not supported!')
-          sys.exit()
-
-        self.preprocess_input = preprocess_input
-        self.decode_predictions = decode_predictions
-
-        if self.model_name == 'ResNet50':
+          from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
           self.feats = 2048
           self.model = ResNet50(weights='imagenet')
+          self.feat_layer = -3
         elif self.model_name == 'VGG19':
+          from tensorflow.keras.applications.vgg19 import VGG19, preprocess_input
           self.input_size = 224
           self.input_dim = (224,224)
           self.feats = 512
           self.model = VGG19(weights='imagenet')
+          self.feat_layer = -6
         elif self.model_name == 'InceptionV3':
+          from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
           self.input_size = 296
           self.input_dim = (299,299)
           self.feats = 2048
           self.model = InceptionV3(weights='imagenet')
+          self.feat_layer = -3
         elif self.model_name == 'EfficientNetB0':
+          from tensorflow.keras.applications.efficientnet import EfficientNetB0, preprocess_input
           self.feats = 1280
           self.model = EfficientNetB0(weights='imagenet')
+          self.feat_layer = -4
         elif self.model_name == 'EfficientNetB1':
+          from tensorflow.keras.applications.efficientnet import EfficientNetB1, preprocess_input
           self.input_size = 240
           self.input_dim = (240,240)
           self.feats = 1280
           self.model = EfficientNetB1(weights='imagenet')
+          self.feat_layer = -4
         elif self.model_name == 'EfficientNetB6':
+          from tensorflow.keras.applications.efficientnet import EfficientNetB6, preprocess_input
           self.input_size = 527
           self.input_dim = (528,528)
           self.feats = 2304
           self.model = EfficientNetB6(weights='imagenet')
+          self.feat_layer = -4
         elif self.model_name == 'squeezenet':
+          import torchvision
+          from torchvision.models import squeezenet1_1
+          from torchvision.models.feature_extraction import create_feature_extractor
           self.feats = 86528
           self.model = squeezenet1_1(pretrained=True)
-        else:
-          print('Model is not supported!')
-          sys.exit()
-
-        if debug:
-          print(self.model.summary()) #Notice the Global Average Pooling layer at the last but onemodel = VGG19(weights='imagenet')
-
-        # Get weights for the prediction layer (last layer)
-        if self.model_name != 'squeezenet':
-          self.last_layer_weights = self.model.layers[-1].get_weights()[0]  #Predictions layer
-
-        if self.model_name == 'ResNet50':
-          self.feat_layer = -3
-        elif self.model_name == 'VGG19':
-          self.feat_layer = -6
-        elif self.model_name == 'InceptionV3':
-          self.feat_layer = -3
-        elif self.model_name == 'EfficientNetB0':
-          self.feat_layer = -4
-        elif self.model_name == 'EfficientNetB1':
-          self.feat_layer = -4
-        elif model_name == 'EfficientNetB6':
-          self.feat_layer = -4
-        elif self.model_name == 'squeezenet':
           return_nodes = { 'features.12.cat': 'layer12' }
           self.model = create_feature_extractor(self.model, return_nodes=return_nodes)
         else:
           print('Model is not supported!')
           sys.exit()
+        
+        if debug:
+          print(self.model.summary()) #Notice the Global Average Pooling layer at the last but onemodel = VGG19(weights='imagenet')
 
-        # For keras models: Output both predictions (last layer) and conv5_block3_add (just before final activation layer)
-        if model_name != 'squeezenet':
+        # For keras models: Get weights for the prediction layer (last layer)
+        # Output both predictions (last layer) and conv5_block3_add (just before final activation layer)
+        if self.model_name != 'squeezenet':
+          self.preprocess_input = preprocess_input
+          self.last_layer_weights = self.model.layers[-1].get_weights()[0]  #Predictions layer
           self.transfer_model = Model(inputs=self.model.input, outputs=(self.model.layers[self.feat_layer].output, self.model.layers[-1].output))
-
+          
         print(f'Model was set up successfully.')
 
         self.heatmap_config = [
           self.model_name,
-          self.preprocess_input, 
-          self.decode_predictions, 
+          self.preprocess_input,  
           self.transfer_model, 
           self.last_layer_weights, 
           self.input_size, 
@@ -187,6 +160,23 @@ class Config:
           self.img_paths,
           self.heatmaps_path,
         ]
+
+
+    def get_last_conv_outputs(self, img_type):
+        all_last_conv_outputs = []
+
+        for img in self.imgs[img_type]:
+            img_resized = img.resize(self.input_dim)
+            img_tensor = np.expand_dims(np.array(img_resized), axis=0)
+            preprocessed_img = self.preprocess_input(img_tensor)
+
+            last_conv_output, _ = self.transfer_model.predict(preprocessed_img)
+            last_conv_output_flat = np.squeeze(last_conv_output).reshape((last_conv_output.shape[0], -1))
+
+            all_last_conv_outputs.append(last_conv_output_flat)
+
+        return np.vstack(all_last_conv_outputs)
+
 
     def __repr__(self):
         attributes = [

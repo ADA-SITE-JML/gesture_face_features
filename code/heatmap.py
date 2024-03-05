@@ -6,12 +6,16 @@ import os
 import scipy
 import matplotlib.pyplot as plt
 from PIL import Image
+import cv2
+
+import torch
+from torchvision import models, transforms
+from torch.nn.functional import interpolate
 
 class Heatmap:
     def __init__(self, 
                   model_name,
                   preprocess_input, 
-                  decode_predictions, 
                   transfer_model, 
                   last_layer_weights, 
                   input_size, 
@@ -24,7 +28,6 @@ class Heatmap:
 
         self.model_name = model_name
         self.preprocess_input = preprocess_input
-        self.decode_predictions = decode_predictions
         self.transfer_model = transfer_model
         self.last_layer_weights = last_layer_weights
         self.input_size = input_size
@@ -36,6 +39,7 @@ class Heatmap:
 
     def get_heatmap(self, input_img, mean=True):
         img_tensor = np.expand_dims(input_img, axis=0)
+
         preprocessed_img = self.preprocess_input(img_tensor)
 
         last_conv_output, pred_vec = self.transfer_model.predict(preprocessed_img)
@@ -64,7 +68,6 @@ class Heatmap:
         reshaped_array = upsampled_last_conv_output.reshape((self.input_size * self.input_size, self.feats))
 
         print("Reshaped Array", reshaped_array.shape)
-
         
         if self.model_name == "VGG19":
           if mean:
@@ -80,7 +83,61 @@ class Heatmap:
 
         return heat_map
 
-
+    def get_heatmap_pytorch(self, input_img):
+        # Convert the input_img from NumPy array to PIL image
+        input_img_pil = Image.fromarray(input_img.astype('uint8'), 'RGB')
+        
+        # Preprocess the image
+        preprocess = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+        input_tensor = preprocess(input_img_pil).unsqueeze(0)  # Add batch dimension
+        
+        # Load the model and set to evaluation mode
+        model = models.squeezenet1_1(pretrained=True).eval()
+        
+        # Hook the target layer to capture the feature maps
+        features_blob = []
+        def hook_feature(module, input, output):
+            features_blob.append(output.cpu().data.numpy())
+        
+        # Register hook to the last convolution layer
+        finalconv_name = 'features'  # This is typically the name of the last conv layer in SqueezeNet
+        model._modules.get(finalconv_name).register_forward_hook(hook_feature)
+        
+        # Forward pass through the model
+        output = model(input_tensor)
+        
+        # Get the weight of the final layer
+        params = list(model.parameters())
+        weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
+        
+        # Generate the CAM
+        class_idx = torch.argmax(output).item()
+        feature_conv = features_blob[0]
+        bz, nc, h, w = feature_conv.shape
+        
+        cam = weight_softmax[class_idx].dot(feature_conv.reshape((nc, h*w)))
+        cam = cam.reshape(h, w)
+        cam = cam - np.min(cam)
+        cam = cam / np.max(cam)
+        cam = np.uint8(255 * cam)
+        
+        # Resize CAM to the original image size
+        cam = cv2.resize(cam, (input_img.shape[1], input_img.shape[0]))
+        heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
+        
+        # Superimpose the heatmap on original image
+        superimposed_img = heatmap * 0.4 + input_img * 0.6
+        superimposed_img = np.uint8(superimposed_img)
+        
+        # Convert BGR (OpenCV default) to RGB
+        if superimposed_img.shape[2] == 3:  # If color image
+            superimposed_img = cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB)
+        
+        return superimposed_img
 
     def generate_heatmaps(self, mean=True, img_count=None, save=False):
         for img_type, img_list in self.imgs.items():
@@ -92,7 +149,10 @@ class Heatmap:
 
             for i, (img, img_path) in enumerate(zip(img_list, img_paths)):
                 img_array = np.array(img.resize(self.input_dim))
-                heatmap = self.get_heatmap(img_array, mean=mean)
+                if self.model_name == "squeezenet":
+                  heatmap = self.get_heatmap_pytorch(img_array)
+                else:
+                  heatmap = self.get_heatmap(img_array, mean=mean)
 
                 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -123,8 +183,10 @@ class Heatmap:
 
                 plt.show()
 
-
+    # TODO: It loads and generates heatmaps for face by default
+    # even if user doesn't load face images
     def generate_heatmaps_row(self, mean=True, img_count=None, imgs_per_row=5):
+        print(self.model_name)
         for img_type in ["sign", "face"]:
             img_list = self.imgs[img_type]
             img_paths = self.img_paths[img_type]
@@ -140,7 +202,10 @@ class Heatmap:
                     if idx < len(img_list):
                         img, img_path = img_list[idx], img_paths[idx]
                         img_array = np.array(img.resize(self.input_dim))
-                        heatmap = self.get_heatmap(img_array, mean=mean)
+                        if self.model_name == "squeezenet":
+                          heatmap = self.get_heatmap_pytorch(img_array)
+                        else:
+                          heatmap = self.get_heatmap(img_array, mean=mean)
 
                         axs[i].imshow(img_array)
                         axs[i].imshow(heatmap, cmap='jet', alpha=0.5)
