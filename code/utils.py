@@ -6,19 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from google.colab.patches import cv2_imshow
 import random
-from sklearn.manifold import TSNE
-
-
-def get_tsne(last_conv_outputs, plot=True):
-    tsne = TSNE(n_components=2, random_state=42)
-    tsne_embedding = tsne.fit_transform(last_conv_outputs)
-
-    if plot:
-        plt.scatter(tsne_embedding[:, 0], tsne_embedding[:, 1])
-        plt.title('t-SNE Embedding of Last Convolutional Layer Features')
-        plt.show()
-
-    return tsne_embedding
 
 
 def adjust_contrast(img, factor):
@@ -76,7 +63,10 @@ def load_imgs(img_paths, shuffle=False, letter=None):
 
     loaded_imgs = []
     for path in img_paths:
-        if letter is not None and not  path.lower().split('/')[-2] == letter.lower():
+        # Extract the last part of the path (letter)
+        folder_name = os.path.basename(os.path.dirname(path)).lower()
+
+        if letter is not None and folder_name not in [l.lower() for l in letter]:
             continue
 
         try:
@@ -98,30 +88,42 @@ def process_img(input_img):
     return img
 
 
-
-def get_paths(root_directory, letter=None, is_random=False):
+def get_paths(root_directory, letter=None, is_random=False, img_numbers=None):
     folder_paths = []
     img_paths = []
 
     folders = os.listdir(root_directory)
-    for folder in folders:
-        if letter is not None and not folder.lower().startswith(letter.lower()):
-            continue
 
+    if letter is not None:
+        if isinstance(letter, str):
+            letter = [letter.upper()]
+        else:
+            letter = [l.upper() for l in letter]
+        folders = [folder for folder in folders if folder.upper().startswith(tuple(letter))]
+
+    if not folders:
+        print("No folders found matching the criteria.")
+        return folder_paths, img_paths  # Return empty lists if no folders match
+
+    for folder in folders:
         folder_path = os.path.join(root_directory, folder)
         folder_paths.append(folder_path)
 
         files = os.listdir(folder_path)
-        if is_random:
-            random_img = random.choice(files)
-            img_path = os.path.join(folder_path, random_img)
-            img_paths.append(img_path)
+        if img_numbers is not None:
+            # Build filenames from img_numbers and check if they exist
+            img_files = [f"IMG_{num}.JPG" for num in img_numbers]
+            found_images = [f for f in img_files if f in files]
+            if not found_images:
+                print(f"No images found for the numbers provided in folder {folder}.")
+            img_paths.extend(os.path.join(folder_path, img) for img in found_images)
+        elif is_random:
+            if files:
+                random_img = random.choice(files)
+                img_paths.append(os.path.join(folder_path, random_img))
+            else:
+                print(f"No files to select randomly in folder {folder}.")
         else:
-            for f in files:
-                img_path = os.path.join(folder_path, f)
-                img_paths.append(img_path)
-
-    if not folder_paths or not img_paths:
-        raise ValueError("No folder or image path was found. Check the specified letter or path.")
+            img_paths.extend(os.path.join(folder_path, f) for f in files)
 
     return folder_paths, img_paths

@@ -5,7 +5,6 @@ import sys
 from keras.models import Model
 import numpy as np
 
-
 # TODO: Squeezenet doesn't return preprocess_input and 
 # decode_predictions yet
 # TODO: VGG19 shape gives error when 
@@ -20,6 +19,8 @@ available_models = [
   "squeezenet",
 ]
 
+available_letters = ["A", "H", "L", "N", "O", "P", "R"]
+
 
 class Config:
     def __init__(self, 
@@ -29,6 +30,7 @@ class Config:
                   shuffle=False, 
                   letter=None, 
                   is_random=False,
+                  img_numbers = None,
                   model_name="InceptionV3", 
                   debug=False,
                   # Default for ResNet, VGG19, squeezenet
@@ -45,6 +47,7 @@ class Config:
         self.load_data = load_data
         self.shuffle = shuffle
         self.letter = letter
+        self.img_numbers = img_numbers
         self.is_random = is_random
         
         self.model_name = model_name
@@ -69,8 +72,8 @@ class Config:
         self.img_paths = { "sign": [], "face": [], "both": [] }
         self.imgs = { "sign": [], "face": [], "both": [] }
 
-        self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, self.letter, self.is_random)
-        self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, self.letter, self.is_random)
+        self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, self.letter, self.is_random, self.img_numbers)
+        self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, self.letter, self.is_random, self.img_numbers)
         self.folder_paths["both"] = self.folder_paths["sign"] + self.folder_paths["face"]
         
         self.img_paths["both"] = self.img_paths["sign"] + self.img_paths["face"]
