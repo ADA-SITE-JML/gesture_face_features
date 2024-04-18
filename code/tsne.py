@@ -7,6 +7,15 @@ from collections import defaultdict
 import os
 
 
+def test_tsne(conf, num_clusters=5, plot=False, plot_imgs=False, cluster_info=True):
+  last_conv_outputs = conf.get_last_conv_outputs()
+  tsne_embedding = get_tsne(last_conv_outputs, plot=plot)
+  clusters = cluster(tsne_embedding, num_clusters=num_clusters)
+  if plot_imgs:
+    visualize_clusters(tsne_embedding, conf.imgs, clusters)
+  if cluster_info:
+    get_cluster_info(clusters, conf.img_paths)
+
 
 def get_tsne(last_conv_outputs, plot=True):
     tsne = TSNE(n_components=2, random_state=42)

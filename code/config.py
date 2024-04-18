@@ -5,6 +5,7 @@ import sys
 from keras.models import Model
 import numpy as np
 
+
 # TODO: Squeezenet doesn't return preprocess_input and 
 # decode_predictions yet
 # TODO: VGG19 shape gives error when 
@@ -21,11 +22,22 @@ available_models = [
 
 available_letters = ["A", "H", "L", "N", "O", "P", "R"]
 
+participants = {
+  0: list(range(2914, 2951)),
+  1: list(range(2871, 2904)),
+  2: list(range(2323, 2356)),
+  3: list(range(2285, 2314)),
+  4: list(range(1646, 1675)),
+  5: list(range(1510 , 1544)),
+}
+
+test_imgs = [2919, 2871, 2325, 2287, 1646, 1539]
+
 
 class Config:
     def __init__(self, 
                   path, 
-                  img_type="both",
+                  img_type="sign",
                   load_data=False, 
                   shuffle=False, 
                   letter=None, 
@@ -62,30 +74,23 @@ class Config:
         self.transfer_model = None
 
         self.code_path = os.path.join(self.path, "code")
-        self.data_path = os.path.join(self.path, "samples")
+        self.samples_path = os.path.join(self.path, "samples")
         self.pillow_path = os.path.join(self.path, "pillow")
         self.heatmaps_path = os.path.join(self.path, "heatmaps", self.model_name)
-        self.sign_path = os.path.join(self.data_path, "sign")
-        self.face_path = os.path.join(self.data_path, "face")
+        self.data_path = os.path.join(self.samples_path, self.img_type)
 
-        self.folder_paths = { "sign": [], "face": [], "both": [] }
-        self.img_paths = { "sign": [], "face": [], "both": [] }
-        self.imgs = { "sign": [], "face": [], "both": [] }
+        self.folder_paths = []
+        self.img_paths = []
+        self.imgs = []
 
-        self.folder_paths["sign"], self.img_paths["sign"] = get_paths(self.sign_path, self.letter, self.is_random, self.img_numbers)
-        self.folder_paths["face"], self.img_paths["face"] = get_paths(self.face_path, self.letter, self.is_random, self.img_numbers)
-        self.folder_paths["both"] = self.folder_paths["sign"] + self.folder_paths["face"]
-        
-        self.img_paths["both"] = self.img_paths["sign"] + self.img_paths["face"]
+        self.folder_paths, self.img_paths = get_paths(self.data_path, self.letter, self.is_random, self.img_numbers)
         
         if load_data:
             print("Loading data...")         
-            self.imgs["sign"] = load_imgs(self.img_paths["sign"], self.shuffle, self.letter)
-            self.imgs["face"] = load_imgs(self.img_paths["face"], self.shuffle, self.letter)
-            self.imgs["both"] = self.imgs["sign"] + self.imgs["face"]
+            self.imgs = load_imgs(self.img_paths, self.shuffle, self.letter)
             print("Data loaded successfully.")
 
-        self.img_count = len(self.imgs["both"])
+        self.img_count = len(self.imgs)
 
         print(f'Setting up model {self.model_name}...')
 
@@ -165,10 +170,10 @@ class Config:
         ]
 
 
-    def get_last_conv_outputs(self, img_type):
+    def get_last_conv_outputs(self):
         all_last_conv_outputs = []
 
-        for img in self.imgs[img_type]:
+        for img in self.imgs:
             img_resized = img.resize(self.input_dim)
             img_tensor = np.expand_dims(np.array(img_resized), axis=0)
             preprocessed_img = self.preprocess_input(img_tensor)

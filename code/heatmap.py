@@ -183,35 +183,35 @@ class Heatmap:
 
                 plt.show()
 
-    # TODO: It loads and generates heatmaps for face by default
-    # even if user doesn't load face images
+
     def generate_heatmaps_row(self, mean=True, img_count=None, imgs_per_row=5):
         print(self.model_name)
-        for img_type in ["sign", "face"]:
-            img_list = self.imgs[img_type]
-            img_paths = self.img_paths[img_type]
-            if img_count is not None:
-                img_list = img_list[:img_count]
-                img_paths = img_paths[:img_count]
+        img_list = self.imgs
+        img_paths = self.img_paths
 
-            num_rows = (len(img_list) + imgs_per_row - 1) // imgs_per_row
-            for row in range(num_rows):
-                fig, axs = plt.subplots(1, imgs_per_row, figsize=(4 * imgs_per_row, 6))
-                for i in range(imgs_per_row):
-                    idx = row * imgs_per_row + i
-                    if idx < len(img_list):
-                        img, img_path = img_list[idx], img_paths[idx]
-                        img_array = np.array(img.resize(self.input_dim))
-                        if self.model_name == "squeezenet":
-                          heatmap = self.get_heatmap_pytorch(img_array)
-                        else:
-                          heatmap = self.get_heatmap(img_array, mean=mean)
+        if img_count is not None:
+            img_list = img_list[:img_count]
+            img_paths = img_paths[:img_count]
 
-                        axs[i].imshow(img_array)
-                        axs[i].imshow(heatmap, cmap='jet', alpha=0.5)
-                        axs[i].axis('off')
+        num_rows = (len(img_list) + imgs_per_row - 1) // imgs_per_row
+        for row in range(num_rows):
+            fig, axs = plt.subplots(1, imgs_per_row, figsize=(4 * imgs_per_row, 6))
+            for i in range(imgs_per_row):
+                idx = row * imgs_per_row + i
+                if idx < len(img_list):
+                    img, img_path = img_list[idx], img_paths[idx]
+                    img_array = np.array(img.resize(self.input_dim))
+                    if self.model_name == "squeezenet":
+                        heatmap = self.get_heatmap_pytorch(img_array)
+                    else:
+                        heatmap = self.get_heatmap(img_array, mean=mean)
 
-                plt.show()
+                    axs[i].imshow(img_array)
+                    axs[i].imshow(heatmap, cmap='jet', alpha=0.5)
+                    axs[i].axis('off')
+
+            plt.show()
+
 
 
     def load_heatmaps(self, img_count=None):
