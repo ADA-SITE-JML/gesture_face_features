@@ -8,18 +8,6 @@ from google.colab.patches import cv2_imshow
 import random
 
 
-def adjust_contrast(img, factor):
-    enhancer = ImageEnhance.Contrast(img)
-    enhanced_img = enhancer.enhance(factor)
-    return enhanced_img
-
-def adjust_contrasts(img_list, factor):
-    enhanced_imgs = []
-    for img in img_list:
-        enhanced_imgs.append(adjust_contrast(img, factor))
-    return enhanced_imgs
-
-
 def plot_imgs(imgs, imgs_per_row=1):
     if isinstance(imgs, str):  # Check if it's a folder path
         img_paths = [os.path.join(imgs, img_name) for img_name in os.listdir(imgs)]
@@ -57,7 +45,7 @@ def show_img(img, title=None, ax=None):
         plt.show()
 
 
-def load_imgs(img_paths, shuffle=False, letter=None):
+def load_imgs(img_paths, shuffle=False):
     if shuffle:
         random.shuffle(img_paths)
 
@@ -66,14 +54,13 @@ def load_imgs(img_paths, shuffle=False, letter=None):
         # Extract the last part of the path (letter)
         folder_name = os.path.basename(os.path.dirname(path)).lower()
 
-        if letter is not None and folder_name not in [l.lower() for l in letter]:
-            continue
-
         try:
             img = Image.open(path)
             loaded_imgs.append(img)
         except Exception as e:
             print(f"Error loading img from {path}: {e}")
+
+    print(f"{len(loaded_imgs)} images loaded")
 
     return loaded_imgs
 
