@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from google.colab.patches import cv2_imshow
 import random
+import requests
+from io import BytesIO
 
 
 def plot_imgs(imgs, imgs_per_row=1):
@@ -75,12 +77,23 @@ def process_img(input_img):
     return img
 
 
-def get_paths(root_directory, letter=None, is_random=False, img_numbers=None):
+
+import os
+import re
+
+import os
+import re
+
+def get_paths(root_directory, letter=None, img_count=None, img_numbers_list=None):
     folder_paths = []
     img_paths = []
+    labels = []
+    img_numbers = []  # To store extracted image numbers
 
+    # Get the list of folders in the root directory
     folders = os.listdir(root_directory)
 
+    # Filter by starting letter(s) if provided
     if letter is not None:
         if isinstance(letter, str):
             letter = [letter.upper()]
@@ -90,27 +103,48 @@ def get_paths(root_directory, letter=None, is_random=False, img_numbers=None):
 
     if not folders:
         print("No folders found matching the criteria.")
-        return folder_paths, img_paths  # Return empty lists if no folders match
+        return folder_paths, img_paths, labels, img_numbers  # Return empty lists if no folders match
+
+    count = 0  # Counter to keep track of how many images have been selected
 
     for folder in folders:
         folder_path = os.path.join(root_directory, folder)
         folder_paths.append(folder_path)
 
         files = os.listdir(folder_path)
-        if img_numbers is not None:
-            # Build filenames from img_numbers and check if they exist
-            img_files = [f"IMG_{num}.JPG" for num in img_numbers]
-            found_images = [f for f in img_files if f in files]
-            if not found_images:
-                print(f"No images found for the numbers provided in folder {folder}.")
-            img_paths.extend(os.path.join(folder_path, img) for img in found_images)
-        elif is_random:
-            if files:
-                random_img = random.choice(files)
-                img_paths.append(os.path.join(folder_path, random_img))
-            else:
-                print(f"No files to select randomly in folder {folder}.")
-        else:
-            img_paths.extend(os.path.join(folder_path, f) for f in files)
 
-    return folder_paths, img_paths
+        for img in files:
+            if img_count is not None and count >= img_count:
+                break  # Stop if we've already selected img_count images
+
+            img_path = os.path.join(folder_path, img)
+
+            # Extract the image number using regex
+            match = re.search(r'IMG_(\d+)\.JPG', img)
+            if match:
+                img_number = int(match.group(1))  # Get the image number as an integer
+                if img_numbers_list is None or img_number in img_numbers_list:
+                    img_paths.append(img_path)
+                    labels.append(folder)  # Add folder name as label for each found image
+                    img_numbers.append(img_number)  # Store the extracted image number
+                    count += 1  # Increment the counter
+            else:
+                img_numbers.append(None)  # Append None if no number is found
+
+    return folder_paths, img_paths, labels, img_numbers
+
+
+
+
+def fetch_img(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            img = Image.open(BytesIO(response.content))
+            return img
+        else:
+            print(f"Failed to retrieve image. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
