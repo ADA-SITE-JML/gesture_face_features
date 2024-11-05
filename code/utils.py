@@ -76,11 +76,6 @@ def process_img(input_img):
         raise ValueError("Unsupported input type. Please provide either an image path or a PIL Image.")
     return img
 
-
-
-import os
-import re
-
 import os
 import re
 
@@ -148,3 +143,6 @@ def fetch_img(url):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+
+
+
