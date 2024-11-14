@@ -2,10 +2,10 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib as mpl
+from PIL import Image
 
 def get_gradcam_heatmap(img_array, model, input_dim, last_conv_layer_name, pred_index=None):
     model.layers[-1].activation = None
-
     grad_model = tf.keras.models.Model(
         model.inputs, [model.get_layer(last_conv_layer_name).output, model.output]
     )
@@ -26,28 +26,21 @@ def get_gradcam_heatmap(img_array, model, input_dim, last_conv_layer_name, pred_
 
     return heatmap.numpy()
 
-
-def superimpose(img_array, heatmap, alpha=1):
-    
+def superimpose(img_array, heatmap, alpha=0.6, interpolation=Image.BILINEAR):
     if img_array.ndim == 4:
        img_array = np.squeeze(img_array)
 
-    # Rescale heatmap to a range 0-255
+    img_array = (img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255
     heatmap = np.uint8(255 * heatmap)
 
-    # Use jet colormap to colorize heatmap
     jet = mpl.colormaps["jet"]
-
-    # Use RGB values of the colormap
     jet_colors = jet(np.arange(256))[:, :3]
     jet_heatmap = jet_colors[heatmap]
 
-    # Create an image with RGB colorized heatmap
     jet_heatmap = tf.keras.utils.array_to_img(jet_heatmap)
-    jet_heatmap = jet_heatmap.resize((img_array.shape[1], img_array.shape[0]))
+    jet_heatmap = jet_heatmap.resize((img_array.shape[1], img_array.shape[0]), resample=interpolation)
     jet_heatmap = tf.keras.utils.img_to_array(jet_heatmap)
 
-    # Superimpose the heatmap on original image
     superimposed_img = jet_heatmap * alpha + img_array
     superimposed_img = tf.keras.utils.array_to_img(superimposed_img)
 

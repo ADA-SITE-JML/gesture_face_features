@@ -5,7 +5,20 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import os
 
-def detect_and_crop_hands(images, output_size=(224, 224)):
+def detect_and_crop_hands(images, output_size=(224, 224), padding=0.2, by_percentage=True):
+    """
+    Detect hands in images and crop with an adjustable bounding box size.
+    
+    Parameters:
+    - images: list of PIL.Image - List of images to process.
+    - output_size: tuple(int, int) - Output size of the cropped hand images.
+    - padding: float or int - Amount to pad around the hand bounding box.
+      Can be specified in percentage (if `by_percentage` is True) or pixels.
+    - by_percentage: bool - If True, treat padding as a percentage of the bounding box size.
+
+    Returns:
+    - List of cropped PIL.Image with hands.
+    """
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(static_image_mode=True, max_num_hands=2)
     cropped_images = []
@@ -13,26 +26,40 @@ def detect_and_crop_hands(images, output_size=(224, 224)):
     for img in images:
         # Convert PIL image to numpy array
         image_np = np.array(img)
+        h, w, _ = image_np.shape
 
         # Process the image and detect hands
         results = hands.process(image_np)
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Get the bounding box coordinates
-                x_coords = [landmark.x * image_np.shape[1] for landmark in hand_landmarks.landmark]
-                y_coords = [landmark.y * image_np.shape[0] for landmark in hand_landmarks.landmark]
+                # Get bounding box coordinates
+                x_coords = [landmark.x * w for landmark in hand_landmarks.landmark]
+                y_coords = [landmark.y * h for landmark in hand_landmarks.landmark]
                 x_min, x_max = int(min(x_coords)), int(max(x_coords))
                 y_min, y_max = int(min(y_coords)), int(max(y_coords))
 
-                # Crop the image to the bounding box
-                cropped_img = img.crop((x_min, y_min, x_max, y_max))
+                # Calculate padding
+                if by_percentage:
+                    padding_x = int((x_max - x_min) * padding)
+                    padding_y = int((y_max - y_min) * padding)
+                else:
+                    padding_x = padding
+                    padding_y = padding
 
-                # Resize the cropped image to the specified dimensions
+                # Apply padding and crop within image bounds
+                x_min_padded = max(0, x_min - padding_x)
+                x_max_padded = min(w, x_max + padding_x)
+                y_min_padded = max(0, y_min - padding_y)
+                y_max_padded = min(h, y_max + padding_y)
+
+                # Crop and resize the image
+                cropped_img = img.crop((x_min_padded, y_min_padded, x_max_padded, y_max_padded))
                 resized_img = cropped_img.resize(output_size, Image.LANCZOS)
                 cropped_images.append(resized_img)
 
     return cropped_images
+
 
 def extract_hand_mp(images, input_dim=None, output_path=None):
     if not isinstance(images, list):

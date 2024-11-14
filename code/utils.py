@@ -10,6 +10,37 @@ import requests
 from io import BytesIO
 
 
+def plot_img_grid(images, imgs_per_row=5, labels=None, figsize=(12, 8)):
+    """
+    Plots a grid of images with a specified number of images per row.
+    
+    Parameters:
+    - images: List of image arrays.
+    - imgs_per_row: Number of images per row.
+    - labels: List of labels for each image (optional).
+    - figsize: Tuple to set the figure size.
+    """
+    num_images = len(images)
+    num_rows = (num_images + imgs_per_row - 1) // imgs_per_row  # Calculate the number of rows needed
+    
+    fig, axes = plt.subplots(num_rows, imgs_per_row, figsize=figsize)
+    fig.subplots_adjust(hspace=0.1, wspace=0.1)  # Adjust spacing between images
+    
+    # Flatten axes array to ensure it’s a list, even if there’s only one row
+    axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+    
+    for i, ax in enumerate(axes):
+        if i < num_images:
+            ax.imshow(images[i])
+            ax.axis('off')  # Hide axis
+            if labels is not None:
+                ax.set_title(labels[i], fontsize=10)
+        else:
+            ax.axis('off')  # Turn off any unused subplots
+    
+    plt.show()
+
+
 def plot_imgs(imgs, imgs_per_row=1):
     if isinstance(imgs, str):  # Check if it's a folder path
         img_paths = [os.path.join(imgs, img_name) for img_name in os.listdir(imgs)]
