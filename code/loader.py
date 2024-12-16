@@ -41,10 +41,6 @@ model_configs = {
   # }
 }
 
-import tensorflow as tf
-import os
-from participant import *
-
 
 class Loader:
   def __init__(self, model_configs, data_path):
@@ -57,6 +53,8 @@ class Loader:
 
       self.dataset = None
       self.models = {}
+      self.img_ids = []
+      self.labels = []
 
   def load_model(self, model_name, include_top=True):
       if model_name == 'resnet50':
@@ -92,9 +90,10 @@ class Loader:
       return model, layer_names, preprocess_input
 
   def load_dataset(self, image_size=(600, 600), interpolation="lanczos5"):
+      self.labels = [os.path.basename(root) for root, _, files in os.walk(self.data_path) for _ in files]
       img_names = [f for _, _, files in os.walk(self.data_path) for f in files]
-      img_ids = [int(f.split('_')[1].replace('.JPG', '')) for f in img_names]
-      img_ids_dataset = tf.data.Dataset.from_tensor_slices(img_ids)
+      self.img_ids = [int(f.split('_')[1].replace('.JPG', '')) for f in img_names]
+      img_ids_dataset = tf.data.Dataset.from_tensor_slices(self.img_ids)
 
       self.dataset = tf.keras.utils.image_dataset_from_directory(
           directory=self.data_path,
@@ -105,7 +104,7 @@ class Loader:
       )
 
       self.dataset = tf.data.Dataset.zip((self.dataset, img_ids_dataset))
-      self.dataset = self.dataset.map(lambda imgs_labels, ids: (imgs_labels[0], imgs_labels[1], ids))
+      self.dataset = self.dataset.map(lambda imgs_labels, img_ids: (imgs_labels[0], imgs_labels[1], img_ids))
 
   def load_models(self):
       for model_name in self.available_models:

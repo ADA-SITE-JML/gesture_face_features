@@ -3,29 +3,29 @@ from tensorflow.keras.models import Model
 import os
 import numpy as np
 
-participants = {
-    0: list(range(2914, 2951)),
-    1: list(range(2871, 2904)),
-    2: list(range(2323, 2356)),
-    3: list(range(2285, 2314)),
-    4: list(range(1646, 1675)),
-    5: list(range(1503, 1544)),
-}
-
 class Participant:
-    def __init__(self, num, dataset, batch_size=32):
+    participants = {
+        0: list(range(2914, 2951)),
+        1: list(range(2871, 2904)),
+        2: list(range(2323, 2356)),
+        3: list(range(2285, 2314)),
+        4: list(range(1646, 1675)),
+        5: list(range(1503, 1535)) + list(range(1537, 1544)),
+    }
+
+    def __init__(self, num, loader, batch_size=32):
         self.num = num
-        self.img_ids = participants[num]
-        self.dataset = dataset.filter(lambda img, label, img_id: tf.reduce_any(tf.equal(img_id, self.img_ids))).batch(batch_size)
+        self.img_ids = self.participants[num]
+        self.dataset = loader.dataset.filter(lambda img, label, img_id: tf.reduce_any(tf.equal(img_id, self.img_ids))).batch(batch_size)
         self.feats = {}
-        self.labels = []
+        self.labels = [loader.labels[loader.img_ids.index(img_id)] for img_id in self.img_ids]
 
     def _generate_filename(self, feat_path, model_name):
         return os.path.join(feat_path, f'p{self.num}_{model_name}_feats.npz')
 
-    def get_mapped_labels(self, label_map={0: 'A', 1: 'H', 2: 'L', 3: 'N', 4: 'O', 5: 'P', 6: 'R'}):
-        print(f'Generating labels for participant {self.num}')
-        self.labels = [label_map[label.numpy()] for _, labels, _ in self.dataset for label in labels]
+    def encode_labels(self):
+        label_map = {'A': 0, 'H': 1, 'L': 2, 'N': 3, 'O': 4, 'P': 5, 'R': 6}
+        return np.array([label_map[label] for label in self.labels])
     
     def get_feats(self, model, layer_names, preprocess_input, feat_path=None):
         self.feats[model.name] = {layer_name: None for layer_name in layer_names}
@@ -61,3 +61,21 @@ class Participant:
         if feat_path:
             print(f"Saving features to {feat_filename}")
             np.savez(feat_filename, **{layer_name: self.feats[model.name][layer_name] for layer_name in layer_names})
+
+
+
+def load_participants(loader, feat_path, nums=[0,1,2,3,4,5]):
+  '''
+    Forward passing to get all participant features. 
+    If no feature file exists yet, get_feats() should 
+    be called in separate cells for each participant/model 
+    in order to not have any RAM issues
+    (for efficientnetb6 batch_size should be minimum)
+  '''
+  p = []
+  for n in nums:
+    par = Participant(n, loader)
+    for model_name in loader.models.keys():
+      par.get_feats(*loader.models[model_name], feat_path)
+    p.append(par)
+  return p
