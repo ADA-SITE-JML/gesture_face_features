@@ -3,7 +3,22 @@ import torch
 from torchvision.models.feature_extraction import create_feature_extractor
 from loader import ModelLoader
 import numpy as np
+from utils import get_predictions
 
+
+def get_f_y_pred(model_name, feats, targets):
+  '''
+    assumes that the fc is last key
+  '''
+  fc_layer = list(feats[model_name].keys())[-1]
+  feat_tensor = feats[model_name][fc_layer]
+  feat_tensor = feat_tensor.cpu() if feat_tensor.is_cuda else feat_tensor
+  f = feat_tensor.numpy()
+  y = np.array(targets)
+  preds, idx = get_predictions(feat_tensor)
+
+  return f, y, preds, idx
+  
 
 def filter_by_id(feats, dataset, img_ids):
     indices = [dataset.img_ids.index(img_id) for img_id in img_ids]

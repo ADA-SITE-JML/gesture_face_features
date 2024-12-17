@@ -7,7 +7,7 @@ from torchvision.models.feature_extraction import get_graph_node_names
 
 class SignImageFolder(ImageFolder):
   def __init__(self, root, transform=transforms.Compose([
-        transforms.Resize((600, 600), transforms.InterpolationMode.BICUBIC),
+        transforms.Resize((528, 528), transforms.InterpolationMode.BICUBIC),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                               std=[0.229, 0.224, 0.225]),
