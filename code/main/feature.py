@@ -16,7 +16,6 @@ def get_f_y_pred(model_name, feats, targets):
   f = feat_tensor.numpy()
   y = np.array(targets)
   preds, idx = get_predictions(feat_tensor)
-
   return f, y, preds, idx
   
 
@@ -32,10 +31,10 @@ def filter_by_id(feats, dataset, img_ids):
     
     return filtered_feats
 
-def extract_model_features(dataloader, model_name_list=ModelLoader.available_models, feat_path=None):
+def extract_model_features(dataloader, model_name_list=ModelLoader.available_models, feat_path=None, return_nodes=None):
   feats = {}
   for model_name in model_name_list:
-    feats[model_name] = extract_features(dataloader, ModelLoader(model_name), feat_path)
+    feats[model_name] = extract_features(dataloader, ModelLoader(model_name, return_nodes), feat_path)
   return feats
 
 def extract_features(dataloader, modelloader, feat_path=None, batch=False):
@@ -43,13 +42,13 @@ def extract_features(dataloader, modelloader, feat_path=None, batch=False):
   model_name = modelloader.model_name
   return_nodes = modelloader.return_nodes
   device = modelloader.device
-
-  path = os.path.join(feat_path, f'{model_name}_feats.pt')
   
-  if feat_path and os.path.exists(path):
-    feats = torch.load(path, weights_only=True, map_location=device)
-    print(f"Features loaded from {path}.")
-    return feats
+  if feat_path:
+    path = os.path.join(feat_path, f'{model_name}_feats.pt')
+    if os.path.exists(path):
+      feats = torch.load(path, weights_only=True, map_location=device)
+      print(f"Features loaded from {path}.")
+      return feats
 
   fe = create_feature_extractor(model, return_nodes=return_nodes, 
                                 suppress_diff_warning=True).to(device)

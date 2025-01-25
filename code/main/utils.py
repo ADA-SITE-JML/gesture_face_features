@@ -8,11 +8,16 @@ import torch
 from collections import Counter
 
 
-def delete_keys(data_dict, key_list):
+def keep_fc(feats, MODEL_POOL, ModelLoader):
+  for model_name in MODEL_POOL:
+    delete_keys(feats[model_name], ModelLoader.fc_return_nodes[model_name])
+
+
+def delete_keys(data_dict, keep_key_list):
   '''To free RAM when having nested dictionary'''
-  key_list = set(key_list)
+  key_list = set(keep_key_list)
   for k in list(data_dict.keys()):
-    if k in key_list:
+    if k not in key_list:
       del data_dict[k]
 
 

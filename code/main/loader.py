@@ -1,33 +1,66 @@
+from string import ascii_letters
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 import os
 from torch import device, cuda
 from torchvision.models.feature_extraction import get_graph_node_names
+import random
 
 class SignImageFolder(ImageFolder):
-  def __init__(self, root, transform=transforms.Compose([
-        transforms.Resize((528, 528), transforms.InterpolationMode.BICUBIC),
+  def __init__(self, root, transform=None, resize=(224, 224), asl=False):
+    self.transform = self._get_transform(transform, resize)
+    super().__init__(root, transform=self.transform)
+    self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
+    self.dims = []
+    self.asl = asl
+    self.img_ids = [self._get_img_id(img_path, self.asl) for img_path, _ in self.samples]
+
+  def _get_transform(self, transform, resize):
+     return transform if transform else transforms.Compose([
+        transforms.Resize(resize, transforms.InterpolationMode.BICUBIC),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                               std=[0.229, 0.224, 0.225]),
-      ])):
-    super().__init__(root, transform=transform)
-    self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
-    self.dims = []
-    self.img_ids = [self._get_img_id(img_path) for img_path, _ in self.samples]
-    
-  def _get_img_id(self, image_path):
-      filename = os.path.basename(image_path)
-      return int(filename.split('_')[1].replace('.JPG', ''))
+      ])
+
+  def _get_img_id(self, image_path, asl):
+    filename = os.path.basename(image_path)
+    img_id=''
+    if asl:
+      img_id = filename.lower().replace('.jpg', '')
+    else:
+      try:
+        img_id = int(filename.lower().split('_')[1].replace('.jpg', ''))
+      except IndexError:
+        print(f'Couldnt load {filename}')
+    return img_id
 
   def __getitem__(self, index):
     img, label = super().__getitem__(index)
     img_path = self.samples[index][0]
     filename = os.path.basename(img_path)
-    img_id = int(filename.split('_')[1].replace('.JPG', ''))
+    img_id = self._get_img_id(img_path, self.asl)
 
     return img, label, img_id
+
+  def subset(self, sample_size=200, randomize=True):
+    class_to_idx = self.class_to_idx
+    idx_to_class = {v: k for k, v in class_to_idx.items()}
+    class_indices = {class_name: [] for class_name in idx_to_class.values()}
+    
+    for idx, label in enumerate(self.targets):
+        class_name = idx_to_class[label]
+        class_indices[class_name].append(idx)
+    
+    sample = []
+    for class_name, indices in class_indices.items():
+        if randomize:
+          random.shuffle(indices)
+        sample.extend(indices[:sample_size])
+    
+    self.samples = [self.samples[i] for i in sample]
+    self.targets = [self.targets[i] for i in sample]
 
   def denormalize(self, tensor):
     inv_normalize = transforms.Normalize(
@@ -79,11 +112,20 @@ class ModelLoader:
     'efficientnet_b6': ['features.8', 'avgpool', 'classifier.1'],
   }
 
-  def __init__(self, model_name):
+  fc_return_nodes = {
+    'vgg19': ['classifier.6'],
+    'resnet50': ['fc'],
+    'inception_v3': ['fc'],
+    'efficientnet_b0': ['classifier.1'],
+    'efficientnet_b1': ['classifier.1'],
+    'efficientnet_b6': ['classifier.1'],
+  }
+
+  def __init__(self, model_name, return_nodes_dict=None):
     assert model_name in self.available_models
     self.model_name = model_name
     self.model = self.load()
-    self.return_nodes = self.return_nodes_dict[model_name]
+    self.return_nodes = return_nodes_dict[model_name] if return_nodes_dict else self.return_nodes_dict[model_name]
     self.device = device("cuda" if cuda.is_available() else "cpu")
     self.input_dim = self.input_dims[model_name]
     self.nodes = get_graph_node_names(self.model,
