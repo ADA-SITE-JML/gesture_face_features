@@ -6,20 +6,26 @@ import json
 import requests
 import torch
 from collections import Counter
+import numpy as np
+from config import MODEL_ZOO
 
+def predict(model_name, feats):
+  feat_tensor = get_fc_tensor(model_name, feats)
+  preds = torch.nn.Softmax(dim=1)(feat_tensor)
+  idx = torch.argmax(preds, dim=1)
+  return preds, idx, feat_tensor
 
-def keep_fc(feats, MODEL_POOL, ModelLoader):
-  for model_name in MODEL_POOL:
-    delete_keys(feats[model_name], ModelLoader.fc_return_nodes[model_name])
-
-
-def delete_keys(data_dict, keep_key_list):
-  '''To free RAM when having nested dictionary'''
-  key_list = set(keep_key_list)
-  for k in list(data_dict.keys()):
-    if k not in key_list:
-      del data_dict[k]
-
+def get_fc_tensor(model_name, feats):
+  # assumes that the fc is item
+  # fc_layer = MODEL_ZOO[model_name]['return_nodes'][-1]
+  fc_layer = list(feats[model_name].keys())[-1]
+  # if fc_layer not in feats[model_name].keys():
+  #   print(f'{fc_layer} not in feats')
+  #   return None
+  feat_tensor = feats[model_name][fc_layer]
+  if feat_tensor.is_cuda:
+    feat_tensor.cpu() 
+  return feat_tensor
 
 def decode_imagenet(pred_idx):
   url = "https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json"
@@ -29,23 +35,8 @@ def decode_imagenet(pred_idx):
   return label_counts, predicted_labels
 
 
-def get_predictions(fc):
-  preds = torch.nn.Softmax(dim=1)(fc)
-  idx = torch.argmax(preds, dim=1)
-  return preds, idx
-
-def fetch_img(url):
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            img = Image.open(BytesIO(response.content))
-            return img
-        else:
-            print(f"Failed to retrieve image. Status code: {response.status_code}")
-            return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-
-
+def delete_keys(data_dict, key_list):
+  key_list = set(key_list)
+  for k in list(data_dict.keys()):
+    if k in key_list:
+      del data_dict[k]
