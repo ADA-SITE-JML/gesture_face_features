@@ -1,8 +1,14 @@
-# https://discuss.pytorch.org/t/how-to-get-input-shape-of-model/85877/4
+# return_nodes are PyTorch specific and can be considered by model examination
+
 MODEL_ZOO = {
   'vgg19': {
     'input_dim': (224, 224), 
     'return_nodes': ['features.34', 'features.35', 'avgpool', 'classifier.6'],
+    # note that avgpool layer has been provided for vgg19 in PyTorch
+    # which doesn't exist in the original implementation (nor, say, in Keras).
+    # AdaptiveAvgPool2d((7,7)) (which isn't a GAP layer) was added for better flexibility
+    # and is not directly comparable to other architectures (at least by dimensionality)
+    # We still consider additional avgpool layer in experiments for vgg19
   },
   'resnet50': {
     'input_dim': (224, 224), 
@@ -26,23 +32,8 @@ MODEL_ZOO = {
   },
 }
 
-MIN_PARAM_GRID = {
-  'umap': {
-    'n_neighbors': [5, 15, 30],
-    'min_dist': [0.01, 0.1, 0.3],
-    'metric': ["euclidean"]
-  },
-  'tsne': {
-    'perplexity': [10, 15, 25],
-    'learning_rate': [100],
-    'metric': ["euclidean"]
-  },
-  'pca': {
-    'whiten': [False],
-    'svd_solver': ['full'],
-  }
-}
 
+# Parameters noted in the paper
 FULL_PARAM_GRID = {
   'umap': {
     'n_neighbors': [5, 10, 15, 30],
@@ -57,5 +48,23 @@ FULL_PARAM_GRID = {
   'pca': {
     'whiten': [True, False],
     'svd_solver': ['full', 'auto'],
+  }
+}
+
+# Minimal set of parameters for quicker experiments
+MIN_PARAM_GRID = {
+  'umap': {
+    'n_neighbors': [5, 15, 30],
+    'min_dist': [0.01, 0.1, 0.3],
+    'metric': ["euclidean"]
+  },
+  'tsne': {
+    'perplexity': [10, 15, 25],
+    'learning_rate': [100],
+    'metric': ["euclidean"]
+  },
+  'pca': {
+    'whiten': [False],
+    'svd_solver': ['full'],
   }
 }

@@ -12,11 +12,10 @@ class SignImageFolder(ImageFolder):
   Custom dataset for sign language images with preprocessing, ID extraction, 
   and utility functions for normalization and visualization.
 
-  Provided mean and std are ImageNet normalization values 
-  required for pre-trained models.
+  Provided mean and std are ImageNet normalization values required for 
+  pre-trained models.
 
-  Overrides __getitem__ to return img_id as well. 
-  Has plotting capacity.
+  Overrides __getitem__ to return img_id as well. Has plotting capacity.
   """
   def __init__(
     self,
