@@ -1,0 +1,13 @@
+# To install the dependencies, use pip:
+# pip install -r requirements.txt
+# Note that mte repository is cloned within experiments.ipynb
+
+torch==2.6.0
+torchvision==0.21.0
+numpy==2.0.2
+pandas==2.2.2
+matplotlib==3.10.0
+opencv-python==4.11.0
+umap-learn==0.5.7
+scikit-learn==1.6.1
+requests==2.32.3
